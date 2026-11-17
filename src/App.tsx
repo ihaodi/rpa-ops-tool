@@ -6,6 +6,7 @@ import {
   type AndroidDevice,
   type DeviceInfo,
 } from "./deviceApi";
+import { getVConsole } from "./vconsole";
 import "./styles.css";
 
 type NavKey = "cloud" | "dashboard" | "tasks" | "logs" | "settings";
@@ -287,6 +288,10 @@ export default function App() {
 
   useEffect(() => {
     setIpList(loadIps());
+  }, []);
+
+  useEffect(() => {
+    getVConsole();
   }, []);
 
   useEffect(() => {

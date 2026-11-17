@@ -1,4 +1,5 @@
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+import { vconsoleLog } from "./vconsole";
 
 const TIMEOUT_MS = 5000;
 
@@ -83,15 +84,33 @@ const withTimeout = <T>(promise: Promise<T>): Promise<T> =>
   ]);
 
 async function requestDevice<T>(ip: string, path: string): Promise<ApiResponse<T> | null> {
+  const url = `http://${ip}:8000${path}`;
+  const params = { ip, path, method: "GET" };
+  const startedAt = performance.now();
+  vconsoleLog("[请求] GET", url, "参数:", params);
+
   try {
     const response = isTauri()
-      ? await withTimeout(tauriFetch(`http://${ip}:8000${path}`, { method: "GET" }))
+      ? await withTimeout(tauriFetch(url, { method: "GET" }))
       : await withTimeout(
           fetch(`/api/device-info?ip=${encodeURIComponent(ip)}&path=${encodeURIComponent(path)}`),
         );
 
-    return (await response.json()) as ApiResponse<T>;
-  } catch {
+    const data = (await response.json()) as ApiResponse<T>;
+    vconsoleLog(
+      `[响应] HTTP ${response.status}`,
+      `耗时 ${Math.round(performance.now() - startedAt)}ms`,
+      data,
+    );
+    return data;
+  } catch (error) {
+    vconsoleLog(
+      "[请求失败]",
+      url,
+      "参数:",
+      params,
+      error instanceof Error ? error.message : "请求失败",
+    );
     return null;
   }
 }

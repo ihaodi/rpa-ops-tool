@@ -285,7 +285,7 @@ tr:hover td { background: #fcfdff; }
 .confirm-modal .modal-desc strong { color: #dc2626; }
 
 .toast {
-  position: fixed; right: 28px; bottom: 26px;
+  position: fixed; right: 28px; bottom: 26px; z-index: 60;
   background: #1f2937; color: #fff; font-size: 12px;
   padding: 10px 16px; border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
