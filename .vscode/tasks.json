@@ -1,0 +1,30 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "前端开发服务",
+      "type": "npm",
+      "script": "dev",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Tauri 桌面开发",
+      "type": "npm",
+      "script": "tauri",
+      "args": ["dev"],
+      "isBackground": true,
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "前端构建",
+      "type": "npm",
+      "script": "build",
+      "problemMatcher": ["$tsc"]
+    }
+  ]
+}

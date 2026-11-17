@@ -1,0 +1,14 @@
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/target": true,
+    "**/dist": true
+  },
+  "rust-analyzer.cargo.manifestPath": ["src-tauri/Cargo.toml"],
+  "rust-analyzer.check.command": "clippy",
+  "search.exclude": {
+    "src-tauri/target": true
+  }
+}
