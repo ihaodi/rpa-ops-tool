@@ -7,3 +7,8 @@ createRoot(document.getElementById("root")!).render(
     <App />
   </StrictMode>,
 );
+
+// React 挂载后移除启动屏，避免安装版首次启动时出现纯白空窗
+window.setTimeout(() => {
+  document.getElementById("boot-screen")?.remove();
+}, 300);
