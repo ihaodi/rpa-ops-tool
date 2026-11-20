@@ -10,6 +10,8 @@ import {
 } from "./deviceApi";
 import { getVConsole } from "./vconsole";
 import { ROBOTS_SEED, type RobotSeed } from "./robotsSeed";
+import Login from "./Login";
+import { clearAuth, isAuthenticated } from "./auth";
 import "./styles.css";
 
 type NavKey = "cloud" | "robots" | "dashboard" | "tasks" | "logs" | "settings";
@@ -302,7 +304,7 @@ function LogList() {
   );
 }
 
-export default function App() {
+function AppPanel({ onLogout }: { onLogout: () => void }) {
   const [active, setActive] = useState<NavKey>("cloud");
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [notice, setNotice] = useState("");
@@ -655,6 +657,7 @@ export default function App() {
             <div className="footer-title">引擎运行正常</div>
             <div className="footer-sub">v0.1.0 · 本地模式</div>
           </div>
+          <button className="logout-btn" onClick={onLogout} title="退出登录">退出</button>
         </div>
       </aside>
 
@@ -1154,5 +1157,23 @@ export default function App() {
         {notice && <div className="toast">{notice}</div>}
       </main>
     </div>
+  );
+}
+
+/** 应用入口：本地登录门禁。保存过密码则自动进入，否则显示登录页。 */
+export default function App() {
+  const [authed, setAuthed] = useState(() => isAuthenticated());
+
+  if (!authed) {
+    return <Login onSuccess={() => setAuthed(true)} />;
+  }
+
+  return (
+    <AppPanel
+      onLogout={() => {
+        clearAuth();
+        setAuthed(false);
+      }}
+    />
   );
 }
