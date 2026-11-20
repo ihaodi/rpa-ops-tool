@@ -284,6 +284,15 @@ export default function App() {
   const [deviceVersions, setDeviceVersions] = useState<Record<string, DeviceVersion>>({});
   // 设备卡片复选框的选中状态（按容器 ID 记录）
   const [checkedDevices, setCheckedDevices] = useState<Set<string>>(new Set());
+  // 卡片右下角「…」菜单：当前展开的设备 ID；清理缓存确认目标
+  const [cardMenuFor, setCardMenuFor] = useState<string | null>(null);
+  const [clearCacheTarget, setClearCacheTarget] = useState<{ id: string; name: string } | null>(null);
+
+  const confirmClearCache = () => {
+    if (!clearCacheTarget) return;
+    showNotice(`已提交清理 ${clearCacheTarget.name} 的缓存`);
+    setClearCacheTarget(null);
+  };
 
   const toggleDeviceCheck = (id: string) => {
     setCheckedDevices((current) => {
@@ -634,7 +643,7 @@ export default function App() {
                                 <div className="android-card-sub">ID：{formatCell(device.id)}</div>
                               </div>
                             </div>
-                            <span className={`badge ${device.status === "running" ? "成功" : "待执行"}`}>
+                            <span className={`badge android-card-badge ${device.status === "running" ? "成功" : "待执行"}`}>
                               {formatDeviceStatus(device.status)}
                             </span>
                           </div>
@@ -670,6 +679,32 @@ export default function App() {
                             </div>
                           </div>
                           <span className="android-card-hint">悬停 ! 查看更多信息</span>
+                          <div className="android-card-menu">
+                            <button
+                              className="android-card-more-btn"
+                              type="button"
+                              aria-label="更多操作"
+                              onClick={() => setCardMenuFor((current) => (current === device.id ? null : device.id))}
+                            >
+                              <span></span><span></span><span></span>
+                            </button>
+                            {cardMenuFor === device.id && (
+                              <div className="android-card-menu-pop">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCardMenuFor(null);
+                                    setClearCacheTarget({ id: device.id, name: formatCell(device.name) });
+                                  }}
+                                >
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+                                    <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
+                                  </svg>
+                                  清理缓存
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -769,6 +804,24 @@ export default function App() {
               <div className="modal-actions">
                 <button className="ghost-btn" onClick={() => setDeleteTarget(null)}>取消</button>
                 <button className="danger-btn" onClick={confirmDelete}>确认删除</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {clearCacheTarget && (
+          <div className="modal-mask" onClick={() => setClearCacheTarget(null)}>
+            <div className="modal confirm-modal" onClick={(event) => event.stopPropagation()}>
+              <div className="modal-head">
+                <h2>清理缓存</h2>
+                <button className="modal-close" onClick={() => setClearCacheTarget(null)}>×</button>
+              </div>
+              <p className="modal-desc">
+                确定要清理云机 <strong>{clearCacheTarget.name}</strong> 的缓存吗？
+              </p>
+              <div className="modal-actions">
+                <button className="ghost-btn" onClick={() => setClearCacheTarget(null)}>取消</button>
+                <button className="primary-btn" onClick={confirmClearCache}>确认清理</button>
               </div>
             </div>
           </div>
