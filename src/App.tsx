@@ -613,8 +613,14 @@ export default function App() {
                                 onChange={() => toggleDeviceCheck(device.id)}
                                 aria-label={`选择 ${formatCell(device.name)}`}
                               />
-                              <span className="android-card-index">序号 {formatCell(device.indexNum)}</span>
+                              <span className="android-card-index">{formatCell(device.indexNum)}</span>
                             </label>
+                            <div className="android-card-icon">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+                                <rect x="6" y="3" width="12" height="18" rx="2" />
+                                <path d="M11 18h2" />
+                              </svg>
+                            </div>
                             <div>
                               <div className="android-card-name">{formatCell(device.name)}</div>
                               <div className="android-card-sub">ID：{formatCell(device.id)}</div>
