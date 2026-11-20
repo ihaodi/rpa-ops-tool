@@ -1,4 +1,4 @@
-import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+import { invoke } from "@tauri-apps/api/core";
 import { vconsoleLog } from "./vconsole";
 
 const TIMEOUT_MS = 15000;
@@ -75,6 +75,44 @@ export interface AndroidDeviceResult {
 
 const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
+interface TauriHttpResult {
+  ok: boolean;
+  status: number;
+  body: string;
+  error: string | null;
+}
+
+/**
+ * 走 Rust 自定义 command 发请求，绕过 plugin-http 的 URL scope 限制。
+ * 返回与 fetch.Response 兼容的最小接口，便于上层复用现有逻辑。
+ */
+async function tauriRequest(
+  url: string,
+  method: "GET" | "POST",
+  body: string | null,
+  timeoutMs: number,
+): Promise<{ status: number; json: () => Promise<unknown> }> {
+  const result = await invoke<TauriHttpResult>("http_request", {
+    url,
+    method,
+    body,
+    timeoutMs,
+  });
+  if (result.error && result.status === 0) {
+    throw new Error(result.error);
+  }
+  return {
+    status: result.status,
+    json: async () => {
+      try {
+        return JSON.parse(result.body);
+      } catch {
+        return null;
+      }
+    },
+  };
+}
+
 const withTimeout = <T>(promise: Promise<T>, timeoutMs: number = TIMEOUT_MS): Promise<T> =>
   Promise.race([
     promise,
@@ -94,7 +132,7 @@ async function requestDevice<T>(ip: string, path: string): Promise<ApiResponse<T
 
   try {
     const response = isTauri()
-      ? await withTimeout(tauriFetch(url, { method: "GET" }))
+      ? await withTimeout(tauriRequest(url, "GET", null, TIMEOUT_MS))
       : await withTimeout(
           fetch(`/api/device-info?ip=${encodeURIComponent(ip)}&path=${encodeURIComponent(path)}`),
         );
@@ -225,7 +263,7 @@ export async function execAndroidCommand(
 
   try {
     const response = isTauri()
-      ? await withTimeout(tauriFetch(url, init), EXEC_TIMEOUT_MS)
+      ? await withTimeout(tauriRequest(url, "POST", JSON.stringify(body), EXEC_TIMEOUT_MS), EXEC_TIMEOUT_MS)
       : await withTimeout(
           fetch(
             `/api/device-info?ip=${encodeURIComponent(ip)}&path=${encodeURIComponent(path)}`,
