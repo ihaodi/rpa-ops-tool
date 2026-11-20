@@ -171,8 +171,15 @@ const formatCell = (value: unknown): string => {
   return String(value);
 };
 
-const formatDeviceStatus = (status: string): string =>
-  status === "running" ? "运行中" : status === "stopped" ? "已停止" : status;
+const formatDeviceStatus = (status: string): string => {
+  const map: Record<string, string> = {
+    running: "运行中",
+    stopped: "已停止",
+    exited: "已退出",
+    created: "已创建",
+  };
+  return map[status] ?? status;
+};
 
 const stats = [
   { label: "今日执行", value: "128", delta: "+12.5%", tone: "blue" },

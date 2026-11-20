@@ -153,6 +153,33 @@ export async function fetchDeviceInfo(ip: string): Promise<DeviceInfoResult> {
   return { data: null, message: result.message ?? "获取设备信息失败" };
 }
 
+// 同序号（indexNum）冲突时的状态优先级：数字越小越优先保留
+const DEVICE_STATUS_PRIORITY: Record<string, number> = {
+  running: 0,
+  stopped: 1,
+  exited: 2,
+  created: 3,
+};
+
+const statusPriority = (status: string): number =>
+  DEVICE_STATUS_PRIORITY[status] ?? Number.MAX_SAFE_INTEGER;
+
+/**
+ * 序号相同的云机只保留一个：按 running > stopped > exited > created 选取，
+ * 优先级相同则保留最先出现的；最终按 indexNum 升序排列。
+ */
+function dedupeDevicesByIndex(list: AndroidDevice[]): AndroidDevice[] {
+  const byIndex = new Map<number, AndroidDevice>();
+  for (const device of list) {
+    const index = Number(device.indexNum);
+    const kept = byIndex.get(index);
+    if (!kept || statusPriority(device.status) < statusPriority(kept.status)) {
+      byIndex.set(index, device);
+    }
+  }
+  return [...byIndex.values()].sort((a, b) => Number(a.indexNum) - Number(b.indexNum));
+}
+
 /** 调用 /android，成功返回云机列表；失败时返回接口 message 供界面展示。 */
 export async function fetchAndroidDevices(ip: string): Promise<AndroidDeviceResult> {
   const result = await requestDevice<{ list?: AndroidDevice[] }>(ip, "/android");
@@ -161,8 +188,7 @@ export async function fetchAndroidDevices(ip: string): Promise<AndroidDeviceResu
   }
   if (result.code === 0) {
     const list = Array.isArray(result.data?.list) ? [...result.data!.list!] : [];
-    list.sort((a, b) => Number(a.indexNum) - Number(b.indexNum));
-    return { list, message: null };
+    return { list: dedupeDevicesByIndex(list), message: null };
   }
   return { list: [], message: result.message ?? "获取设备列表失败" };
 }
