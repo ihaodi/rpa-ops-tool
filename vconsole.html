@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>vConsole 调试面板</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #fff;
+        font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+      }
+      #tip {
+        padding: 10px 14px;
+        background: #f6f8fb;
+        border-bottom: 1px solid #e6eaf1;
+        color: #6b7280;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="tip">vConsole 调试面板 · 主窗口的请求日志会实时同步到这里</div>
+    <script type="module" src="/src/vconsole-window.ts"></script>
+  </body>
+</html>

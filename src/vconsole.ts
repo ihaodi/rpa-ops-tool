@@ -1,17 +1,38 @@
-import VConsole from "vconsole";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 
-let instance: VConsole | null = null;
+const CHANNEL_NAME = "rpa-ops-tool-vconsole";
+const channel =
+  typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(CHANNEL_NAME) : null;
 
-/** 在 Webview / 浏览器里初始化一次 vConsole，提供安装版的调试面板。 */
-export function getVConsole(): VConsole | null {
-  if (typeof window === "undefined") return null;
-  if (!instance) {
-    instance = new VConsole({ theme: "light" });
-  }
-  return instance;
+/**
+ * 把请求日志广播给独立的 vConsole 调试窗口；浏览器控制台也保留一份。
+ * 主窗口不再注入 vConsole 面板，面板在单独窗口里展示。
+ */
+export function vconsoleLog(...args: unknown[]): void {
+  channel?.postMessage({ type: "vconsole-log", args });
+  console.log(...args);
 }
 
-/** 把请求参数、响应等信息输出到 vConsole 的 Log 面板。 */
-export function vconsoleLog(...args: unknown[]): void {
-  getVConsole()?.log.log(...args);
+const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+/** 打开独立的 vConsole 调试窗口；浏览器预览中用弹窗，安装版中用 Tauri 原生窗口。 */
+export async function openVConsoleWindow(): Promise<void> {
+  if (isTauri()) {
+    try {
+      new WebviewWindow(`vconsole-${Date.now()}`, {
+        url: "vconsole.html",
+        title: "vConsole 调试面板",
+        width: 760,
+        height: 560,
+        resizable: true,
+        center: true,
+      });
+    } catch (error) {
+      console.error("打开 vConsole 窗口失败", error);
+    }
+    return;
+  }
+
+  const popup = window.open("/vconsole.html", "vconsole", "width=760,height=560,resizable=yes");
+  popup?.focus();
 }

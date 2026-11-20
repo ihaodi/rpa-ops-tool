@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig, type ViteDevServer } from "vite";
 import react from "@vitejs/plugin-react";
 
@@ -45,6 +46,14 @@ const deviceInfoDevApi = () => ({
 export default defineConfig({
   plugins: [react(), deviceInfoDevApi()],
   clearScreen: false,
+  build: {
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL("./index.html", import.meta.url)),
+        vconsole: fileURLToPath(new URL("./vconsole.html", import.meta.url)),
+      },
+    },
+  },
   server: {
     port: 5173,
     strictPort: true,
