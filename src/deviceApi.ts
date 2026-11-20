@@ -140,7 +140,9 @@ export async function fetchAndroidDevices(ip: string): Promise<AndroidDeviceResu
     return { list: [], message: "请求超时或设备不可达" };
   }
   if (result.code === 0) {
-    return { list: Array.isArray(result.data?.list) ? result.data!.list! : [], message: null };
+    const list = Array.isArray(result.data?.list) ? [...result.data!.list!] : [];
+    list.sort((a, b) => Number(a.indexNum) - Number(b.indexNum));
+    return { list, message: null };
   }
   return { list: [], message: result.message ?? "获取设备列表失败" };
 }
