@@ -585,7 +585,7 @@ export default function App() {
                             </div>
                             <div>
                               <div className="android-card-name">{formatCell(device.name)}</div>
-                              <div className="android-card-sub">#{formatCell(device.indexNum)} · {formatCell(device.id)}</div>
+                              <div className="android-card-sub">ID：{formatCell(device.id)}</div>
                             </div>
                           </div>
                           <span className={`badge ${device.status === "running" ? "成功" : "待执行"}`}>
@@ -604,6 +604,7 @@ export default function App() {
                           </span>
                         </div>
                         <div className="android-card-specs">
+                          <span>序号 {formatCell(device.indexNum)}</span>
                           <span>FPS {formatCell(device.doboxFps)}</span>
                           <span>{formatCell(device.doboxWidth)} × {formatCell(device.doboxHeight)}</span>
                           <span>DPI {formatCell(device.doboxDpi)}</span>
