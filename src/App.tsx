@@ -5,6 +5,7 @@ import {
   fetchDeviceInfo,
   type AndroidDevice,
   type DeviceInfo,
+  type DeviceVersion,
 } from "./deviceApi";
 import { getVConsole } from "./vconsole";
 import "./styles.css";
@@ -281,22 +282,27 @@ export default function App() {
   const [deviceListError, setDeviceListError] = useState<string | null>(null);
   const [listLoading, setListLoading] = useState(false);
   const [listRefresh, setListRefresh] = useState(0);
+  // 每个 IP 对应的版本信息（来自 /info 的 latestVersion/currentVersion）
+  const [deviceVersions, setDeviceVersions] = useState<Record<string, DeviceVersion>>({});
 
-  // 对指定 IP 逐个调用 /info 检测在线状态（code=0 在线），并写回本地库。
+  // 对指定 IP 逐个调用 /info 检测在线状态（code=0 在线），记录版本，并写回本地库。
   const checkIpsOnline = (addresses: string[]) => {
     if (addresses.length === 0) return;
     void Promise.all(
       addresses.map(async (address) => {
-        const online = await checkDeviceStatus(address);
+        const result = await checkDeviceStatus(address);
         setIpList((current) => {
           const updated = current.map((item) =>
             item.address === address
-              ? { ...item, status: online ? ("在线" as const) : ("离线" as const) }
+              ? { ...item, status: result.online ? ("在线" as const) : ("离线" as const) }
               : item,
           );
           saveIps(updated);
           return updated;
         });
+        if (result.version) {
+          setDeviceVersions((current) => ({ ...current, [address]: result.version! }));
+        }
       }),
     );
   };
@@ -519,7 +525,20 @@ export default function App() {
               <section className="panel device-info-panel">
                 <div className="panel-head">
                   <div>
-                    <h2>设备信息</h2>
+                    <h2>
+                      设备信息
+                      {selectedIp && deviceVersions[selectedIp] && (
+                        <span className="version-badge">
+                          当前版本 {deviceVersions[selectedIp].currentVersion}
+                          {deviceVersions[selectedIp].latestVersion >
+                            deviceVersions[selectedIp].currentVersion && (
+                            <span className="version-new">
+                              · 可升级至 {deviceVersions[selectedIp].latestVersion}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </h2>
                     <span className="muted small">{selectedIp ?? "未选择设备"}</span>
                   </div>
                   <button

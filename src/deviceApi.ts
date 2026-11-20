@@ -115,10 +115,30 @@ async function requestDevice<T>(ip: string, path: string): Promise<ApiResponse<T
   }
 }
 
-/** 调用 /info，code 为 0 视为在线，其余情况（含超时）离线。 */
-export async function checkDeviceStatus(ip: string): Promise<boolean> {
-  const result = await requestDevice<unknown>(ip, "/info");
-  return result?.code === 0;
+export interface DeviceVersion {
+  latestVersion: number;
+  currentVersion: number;
+}
+
+export interface DeviceStatusResult {
+  online: boolean;
+  version: DeviceVersion | null;
+}
+
+/** 调用 /info，code 为 0 视为在线；同时带出版本号（latestVersion/currentVersion）。 */
+export async function checkDeviceStatus(ip: string): Promise<DeviceStatusResult> {
+  const result = await requestDevice<DeviceVersion>(ip, "/info");
+  if (result?.code !== 0) {
+    return { online: false, version: null };
+  }
+  const data = result.data;
+  const version =
+    data &&
+    typeof data.latestVersion === "number" &&
+    typeof data.currentVersion === "number"
+      ? { latestVersion: data.latestVersion, currentVersion: data.currentVersion }
+      : null;
+  return { online: true, version };
 }
 
 /** 调用 /info/device，成功返回设备信息；失败时返回接口 message 供界面展示。 */

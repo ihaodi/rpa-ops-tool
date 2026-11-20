@@ -220,6 +220,14 @@ tr:hover td { background: #fcfdff; }
 
 .device-info-panel { padding-bottom: 18px; }
 .device-info-panel .panel-head h2 + .muted { display: block; margin-top: 4px; }
+.device-info-panel .panel-head h2 { display: flex; align-items: center; gap: 10px; }
+.version-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 10px;
+  background: #eef4ff; color: #2563eb;
+  font-size: 11px; font-weight: 600;
+}
+.version-new { color: #d97706; }
 .device-info-panel .text-btn:disabled { color: #b4bdc9; cursor: default; text-decoration: none; }
 .device-info-empty { padding: 36px 20px; text-align: center; font-size: 12px; color: #9aa5b5; }
 .device-info-empty.error { color: #dc2626; }
