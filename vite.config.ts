@@ -11,7 +11,7 @@ const deviceInfoDevApi = () => ({
       const params = new URL(req.url ?? "", "http://localhost").searchParams;
       const ip = params.get("ip");
       const requestedPath = params.get("path") ?? "/info";
-      const path = ["/info", "/info/device", "/android"].includes(requestedPath)
+      const path = ["/info", "/info/device", "/android", "/android/exec"].includes(requestedPath)
         ? requestedPath
         : "/info";
       const send = (status: number, body: unknown) => {
@@ -25,16 +25,41 @@ const deviceInfoDevApi = () => ({
         return;
       }
 
+      const method = req.method === "POST" ? "POST" : "GET";
+      let requestBody: string | undefined;
+      if (method === "POST") {
+        const chunks: Buffer[] = [];
+        for await (const chunk of req) {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        }
+        requestBody = Buffer.concat(chunks).toString("utf8");
+      }
+
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 5000);
+      const timeoutMs = path === "/android/exec" ? 30_000 : 15_000;
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        const upstream = await fetch(`http://${ip}:8000${path}`, { signal: controller.signal });
+        const upstream = await fetch(`http://${ip}:8000${path}`, {
+          method,
+          headers: method === "POST" ? { "Content-Type": "application/json" } : undefined,
+          body: requestBody,
+          signal: controller.signal,
+        });
         const text = await upstream.text();
-        res.statusCode = 200;
+        // 仅清理缓存接口透传真实 HTTP 状态供 200 判定；其他接口保持原行为（一律 200，由 code 判断）
+        if (path === "/android/exec") {
+          res.statusCode = upstream.status || 200;
+        } else {
+          res.statusCode = 200;
+        }
         res.setHeader("Content-Type", "application/json; charset=utf-8");
         res.end(text || JSON.stringify({ code: 502 }));
       } catch {
-        send(200, { code: 504, message: "timeout or unreachable" });
+        if (path === "/android/exec") {
+          send(504, { code: 504, message: "timeout or unreachable" });
+        } else {
+          send(200, { code: 504, message: "timeout or unreachable" });
+        }
       } finally {
         clearTimeout(timer);
       }

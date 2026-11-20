@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   checkDeviceStatus,
+  execAndroidCommand,
   fetchAndroidDevices,
   fetchDeviceInfo,
   type AndroidDevice,
@@ -8,9 +9,10 @@ import {
   type DeviceVersion,
 } from "./deviceApi";
 import { getVConsole } from "./vconsole";
+import { ROBOTS_SEED, type RobotSeed } from "./robotsSeed";
 import "./styles.css";
 
-type NavKey = "cloud" | "dashboard" | "tasks" | "logs" | "settings";
+type NavKey = "cloud" | "robots" | "dashboard" | "tasks" | "logs" | "settings";
 type TaskStatus = "运行中" | "成功" | "待执行" | "失败";
 
 interface Task {
@@ -33,7 +35,10 @@ interface IpEntry {
 }
 
 const IP_STORAGE_KEY = "rpa-arm-device-ips";
+const ROBOTS_STORAGE_KEY = "rpa-robots";
 const IPV4_PATTERN = /^((25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(25[0-5]|2[0-4]\d|1?\d?\d)$/;
+
+type Robot = RobotSeed;
 
 const compareIp = (a: string, b: string) => {
   const left = a.split(".").map(Number);
@@ -70,6 +75,26 @@ const saveIps = (list: IpEntry[]) => {
   localStorage.setItem(IP_STORAGE_KEY, JSON.stringify(sortIps(list)));
 };
 
+/** 首次加载用 Excel 初始化数据写入本地；之后只读本地，保证删改可持久。 */
+const loadRobots = (): Robot[] => {
+  try {
+    const raw = localStorage.getItem(ROBOTS_STORAGE_KEY);
+    if (raw !== null) {
+      const parsed = JSON.parse(raw) as Robot[];
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {
+    // 本地数据损坏时回退到初始化数据
+  }
+  const seed = ROBOTS_SEED.map((item) => ({ ...item }));
+  localStorage.setItem(ROBOTS_STORAGE_KEY, JSON.stringify(seed));
+  return seed;
+};
+
+const saveRobots = (list: Robot[]) => {
+  localStorage.setItem(ROBOTS_STORAGE_KEY, JSON.stringify(list));
+};
+
 function parseIpAddresses(text: string): string[] {
   const parts = text.split(/[\s,;，；、]+/).filter(Boolean);
   return [...new Set(parts.filter((value) => IPV4_PATTERN.test(value)))].sort(compareIp);
@@ -86,6 +111,11 @@ const navItems: NavItem[] = [
     key: "cloud",
     label: "云机",
     icon: icon(<><path d="M7 18h10a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.1 9.5 4.25 4.25 0 0 0 7 18z" /><path d="M9 21h6" /></>),
+  },
+  {
+    key: "robots",
+    label: "机器人管理",
+    icon: icon(<><rect x="4" y="8" width="16" height="11" rx="2" /><path d="M12 4v4" /><circle cx="9" cy="13" r="1" /><circle cx="15" cy="13" r="1" /><path d="M9 16h6" /></>),
   },
   {
     key: "dashboard",
@@ -111,16 +141,6 @@ const navItems: NavItem[] = [
 
 const deviceFieldGroups: { title: string; fields: { key: keyof DeviceInfo; label: string }[] }[] = [
   {
-    title: "基础信息",
-    fields: [
-      { key: "deviceId", label: "设备ID" },
-      { key: "model", label: "型号版本" },
-      { key: "version", label: "固件版本" },
-      { key: "ip", label: "网口IP" },
-      { key: "hwaddr", label: "MAC地址" },
-    ],
-  },
-  {
     title: "运行与存储",
     fields: [
       { key: "cputemp", label: "CPU温度" },
@@ -135,6 +155,16 @@ const deviceFieldGroups: { title: string; fields: { key: keyof DeviceInfo; label
       { key: "mmcwrite", label: "磁盘写入量" },
       { key: "mmctemp", label: "磁盘温度" },
       { key: "speed", label: "网口速率" },
+    ],
+  },
+  {
+    title: "基础信息",
+    fields: [
+      { key: "deviceId", label: "设备ID" },
+      { key: "model", label: "型号版本" },
+      { key: "version", label: "固件版本" },
+      { key: "ip", label: "网口IP" },
+      { key: "hwaddr", label: "MAC地址" },
     ],
   },
 ];
@@ -187,6 +217,9 @@ const formatDeviceStatus = (status: string): string => {
   return map[status] ?? status;
 };
 
+/** 清理缓存时通过 /android/exec 下发的命令（接口约定）。 */
+const CLEAR_CACHE_COMMAND = ["sd", "-c", "rm -rf /sdcard/Android/data/com.tencent.wework/files/imagecache"];
+
 const stats = [
   { label: "今日执行", value: "128", delta: "+12.5%", tone: "blue" },
   { label: "成功", value: "121", delta: "94.5%", tone: "green" },
@@ -212,6 +245,7 @@ const logs = [
 
 const titles: Record<NavKey, { title: string; subtitle: string }> = {
   cloud: { title: "云机", subtitle: "查看与管理云端设备资源" },
+  robots: { title: "机器人管理", subtitle: "管理机器人信息，数据存储于本地" },
   dashboard: { title: "控制台", subtitle: "概览自动化任务的整体运行情况" },
   tasks: { title: "任务管理", subtitle: "查看、配置并手动触发自动化任务" },
   logs: { title: "运行日志", subtitle: "追踪每一次执行的过程与结果" },
@@ -272,6 +306,12 @@ export default function App() {
   const [active, setActive] = useState<NavKey>("cloud");
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [notice, setNotice] = useState("");
+  // 机器人管理：本地持久化（首次用 Excel 初始化数据）
+  const [robots, setRobots] = useState<Robot[]>(() => loadRobots());
+  const [robotQuery, setRobotQuery] = useState("");
+  const [robotAddOpen, setRobotAddOpen] = useState(false);
+  const [robotForm, setRobotForm] = useState({ robot_id: "", name: "" });
+  const [robotDeleteTarget, setRobotDeleteTarget] = useState<Robot | null>(null);
   const [ipList, setIpList] = useState<IpEntry[]>([]);
   const [ipQuery, setIpQuery] = useState("");
   const [selectedIp, setSelectedIp] = useState<string | null>(null);
@@ -282,6 +322,8 @@ export default function App() {
   const [deviceInfoError, setDeviceInfoError] = useState<string | null>(null);
   const [infoLoading, setInfoLoading] = useState(false);
   const [infoRefresh, setInfoRefresh] = useState(0);
+  // 设备信息中已折叠的分组标题集合（基础信息默认隐藏）
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set(["基础信息"]));
   const [androidDevices, setAndroidDevices] = useState<AndroidDevice[]>([]);
   const [deviceListError, setDeviceListError] = useState<string | null>(null);
   const [listLoading, setListLoading] = useState(false);
@@ -290,14 +332,93 @@ export default function App() {
   const [deviceVersions, setDeviceVersions] = useState<Record<string, DeviceVersion>>({});
   // 设备卡片复选框的选中状态（按容器 ID 记录）
   const [checkedDevices, setCheckedDevices] = useState<Set<string>>(new Set());
-  // 卡片右下角「…」菜单：当前展开的设备 ID；清理缓存确认目标
+  // 卡片右下角「…」菜单：当前展开的设备 ID；正在清理缓存的设备 ID
   const [cardMenuFor, setCardMenuFor] = useState<string | null>(null);
-  const [clearCacheTarget, setClearCacheTarget] = useState<{ id: string; name: string } | null>(null);
+  const [clearingCacheId, setClearingCacheId] = useState<string | null>(null);
+  // 批量清理缓存：是否进行中、进度（已完成数 / 总数）
+  const [batchClearing, setBatchClearing] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
+  // 全部清除缓存：遍历所有 IP 下的设备，逐个清理
+  const [allClearing, setAllClearing] = useState(false);
+  const [allClearProgress, setAllClearProgress] = useState<{ done: number; total: number } | null>(null);
+  const [allClearConfirmOpen, setAllClearConfirmOpen] = useState(false);
 
-  const confirmClearCache = () => {
-    if (!clearCacheTarget) return;
-    showNotice(`已提交清理 ${clearCacheTarget.name} 的缓存`);
-    setClearCacheTarget(null);
+  const toggleInfoGroup = (title: string) => {
+    setCollapsedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(title)) next.delete(title);
+      else next.add(title);
+      return next;
+    });
+  };
+
+  const handleClearCache = async (device: AndroidDevice) => {
+    if (clearingCacheId || batchClearing || !selectedIp) return;
+    const name = formatCell(device.name);
+    setClearingCacheId(device.id);
+    const result = await execAndroidCommand(selectedIp, name, CLEAR_CACHE_COMMAND);
+    setClearingCacheId(null);
+    if (result.success) {
+      showNotice(`已清理 ${shortDeviceName(name)} 的缓存`);
+    } else {
+      showNotice(`清理失败：${result.message ?? "未知错误"}`);
+    }
+  };
+
+  /** 针对设备列表勾选的设备，一个一个串行清理缓存，并更新进度。 */
+  const handleBatchClearCache = async () => {
+    if (batchClearing || !selectedIp) return;
+    const targets = androidDevices.filter((device) => checkedDevices.has(device.id));
+    if (targets.length === 0) {
+      showNotice("请先在设备列表中勾选要清理的设备");
+      return;
+    }
+    setBatchClearing(true);
+    setBatchProgress({ done: 0, total: targets.length });
+    let successCount = 0;
+    for (let index = 0; index < targets.length; index += 1) {
+      const device = targets[index];
+      setClearingCacheId(device.id);
+      setBatchProgress({ done: index, total: targets.length });
+      const result = await execAndroidCommand(selectedIp, formatCell(device.name), CLEAR_CACHE_COMMAND);
+      if (result.success) successCount += 1;
+    }
+    setClearingCacheId(null);
+    setBatchProgress(null);
+    setBatchClearing(false);
+    showNotice(`批量清理完成：成功 ${successCount} / ${targets.length}`);
+  };
+
+  /** 全部清除：遍历 IP 列表每个在线设备，拉取其云机列表，逐台串行清理缓存。 */
+  const handleClearAllCache = async () => {
+    setAllClearConfirmOpen(false);
+    if (allClearing) return;
+    const addresses = ipList.map((item) => item.address);
+    if (addresses.length === 0) {
+      showNotice("IP 列表为空，请先导入设备 IP");
+      return;
+    }
+    setAllClearing(true);
+    setAllClearProgress({ done: 0, total: 0 });
+    // 先汇总所有 IP 下的云机（带所属 IP），再逐台清理
+    const tasks: { ip: string; device: AndroidDevice }[] = [];
+    for (const address of addresses) {
+      const result = await fetchAndroidDevices(address);
+      result.list.forEach((device) => tasks.push({ ip: address, device }));
+    }
+    setAllClearProgress({ done: 0, total: tasks.length });
+    let successCount = 0;
+    for (let index = 0; index < tasks.length; index += 1) {
+      const task = tasks[index];
+      setClearingCacheId(task.device.id);
+      setAllClearProgress({ done: index, total: tasks.length });
+      const result = await execAndroidCommand(task.ip, formatCell(task.device.name), CLEAR_CACHE_COMMAND);
+      if (result.success) successCount += 1;
+    }
+    setClearingCacheId(null);
+    setAllClearProgress(null);
+    setAllClearing(false);
+    showNotice(`全部清理完成：成功 ${successCount} / ${tasks.length}`);
   };
 
   const toggleDeviceCheck = (id: string) => {
@@ -305,6 +426,21 @@ export default function App() {
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      return next;
+    });
+  };
+
+  // 全选：设备列表中所有卡片是否已勾选
+  const allDevicesChecked =
+    androidDevices.length > 0 && androidDevices.every((device) => checkedDevices.has(device.id));
+  const toggleCheckAll = () => {
+    setCheckedDevices((current) => {
+      const next = new Set(current);
+      if (allDevicesChecked) {
+        androidDevices.forEach((device) => next.delete(device.id));
+      } else {
+        androidDevices.forEach((device) => next.add(device.id));
+      }
       return next;
     });
   };
@@ -400,6 +536,39 @@ export default function App() {
     window.setTimeout(() => setNotice(""), 2500);
   };
 
+  const confirmAddRobot = () => {
+    const name = robotForm.name.trim();
+    const robotId = robotForm.robot_id.trim();
+    if (!name) {
+      showNotice("请输入机器人名称");
+      return;
+    }
+    if (!robotId) {
+      showNotice("请输入机器人 ID");
+      return;
+    }
+    if (robots.some((item) => item.robot_id === robotId)) {
+      showNotice("该机器人 ID 已存在");
+      return;
+    }
+    const now = new Date().toISOString().slice(0, 19);
+    const next = [{ robot_id: robotId, name, created_at: now, updated_at: now }, ...robots];
+    setRobots(next);
+    saveRobots(next);
+    setRobotForm({ robot_id: "", name: "" });
+    setRobotAddOpen(false);
+    showNotice(`已添加机器人 ${name}`);
+  };
+
+  const confirmDeleteRobot = () => {
+    if (!robotDeleteTarget) return;
+    const next = robots.filter((item) => item.robot_id !== robotDeleteTarget.robot_id);
+    setRobots(next);
+    saveRobots(next);
+    setRobotDeleteTarget(null);
+    showNotice(`已删除机器人 ${robotDeleteTarget.name}`);
+  };
+
   const toggleTask = (id: string) => {
     setTasks((current) =>
       current.map((task) =>
@@ -449,6 +618,9 @@ export default function App() {
   };
 
   const filteredIps = ipList.filter((item) => item.address.includes(ipQuery.trim()));
+  const filteredRobots = robots.filter((item) =>
+    item.name.includes(robotQuery.trim()) || item.robot_id.includes(robotQuery.trim()),
+  );
   const validImportCount = parseIpAddresses(importText).length;
   const meta = titles[active];
 
@@ -492,13 +664,33 @@ export default function App() {
             <h1>{meta.title}</h1>
             <p>{meta.subtitle}</p>
           </div>
-          <div className="topbar-actions">
-            <div className="search">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-              <input placeholder="搜索任务或日志" aria-label="搜索任务或日志" />
+          {active === "cloud" && (
+            <div className="topbar-actions">
+              <button
+                className="danger-outline-btn"
+                disabled={allClearing || ipList.length === 0}
+                onClick={() => setAllClearConfirmOpen(true)}
+              >
+                {allClearing && allClearProgress ? (
+                  <>
+                    <span className="btn-spinner" />
+                    全部清理中 {allClearProgress.done}/{allClearProgress.total}
+                  </>
+                ) : (
+                  "全部清除缓存"
+                )}
+              </button>
             </div>
-            <button className="primary-btn" onClick={() => setActive("tasks")}>+ 新建任务</button>
-          </div>
+          )}
+          {active !== "cloud" && active !== "robots" && (
+            <div className="topbar-actions">
+              <div className="search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+                <input placeholder="搜索任务或日志" aria-label="搜索任务或日志" />
+              </div>
+              <button className="primary-btn" onClick={() => setActive("tasks")}>+ 新建任务</button>
+            </div>
+          )}
         </header>
 
         <div className="content">
@@ -583,32 +775,71 @@ export default function App() {
                 )}
                 {!infoLoading && deviceInfo && (
                   <div className="device-info-body">
-                    {deviceFieldGroups.map((group) => (
-                      <div className="device-info-group" key={group.title}>
-                        <div className="device-info-group-title">{group.title}</div>
-                        <div className="device-info-grid">
-                          {group.fields.map((field) => (
-                            <div className="device-info-item" key={field.key}>
-                              <span className="device-info-label">{field.label}</span>
-                              <span className="device-info-value">{deviceInfo[field.key]}</span>
+                    {deviceFieldGroups.map((group) => {
+                      const isCollapsed = collapsedGroups.has(group.title);
+                      return (
+                        <div className={`device-info-group ${isCollapsed ? "collapsed" : ""}`} key={group.title}>
+                          <div
+                            className="device-info-group-title"
+                            onClick={() => toggleInfoGroup(group.title)}
+                            title={isCollapsed ? `展开${group.title}` : `隐藏${group.title}`}
+                          >
+                            <span className={`collapse-chevron ${isCollapsed ? "up" : ""}`}>
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                            </span>
+                            {group.title}
+                          </div>
+                          {!isCollapsed && (
+                            <div className="device-info-grid">
+                              {group.fields.map((field) => (
+                                <div className="device-info-item" key={field.key}>
+                                  <span className="device-info-label">{field.label}</span>
+                                  <span className="device-info-value">{deviceInfo[field.key]}</span>
+                                </div>
+                              ))}
                             </div>
-                          ))}
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </section>
               <section className="panel device-list-panel">
                 <div className="panel-head">
-                  <div>
-                    <h2>设备列表（{androidDevices.length}）</h2>
-                    <span className="muted small">{selectedIp ?? "未选择设备"}</span>
+                  <div className="device-list-head">
+                    <label className="select-all" title="全选设备">
+                      <input
+                        type="checkbox"
+                        checked={allDevicesChecked}
+                        disabled={androidDevices.length === 0}
+                        onChange={toggleCheckAll}
+                        aria-label="全选设备"
+                      />
+                    </label>
+                    <div>
+                      <h2>设备列表（{androidDevices.length}）</h2>
+                      <span className="muted small">{selectedIp ?? "未选择设备"}</span>
+                    </div>
                   </div>
                   <div className="panel-actions">
                     <button
+                      className="text-btn batch-clear-btn"
+                      disabled={!selectedIp || batchClearing || checkedDevices.size === 0}
+                      onClick={handleBatchClearCache}
+                    >
+                      {batchClearing && batchProgress ? (
+                        <>
+                          <span className="btn-spinner" />
+                          批量清理中 {batchProgress.done}/{batchProgress.total}
+                        </>
+                      ) : (
+                        "批量清除缓存"
+                      )}
+                    </button>
+                    <button
                       className="text-btn"
-                      disabled={!selectedIp}
+                      disabled={!selectedIp || batchClearing}
                       onClick={() => setListRefresh((value) => value + 1)}
                     >
                       刷新
@@ -684,21 +915,28 @@ export default function App() {
                           </div>
                           <span className="android-card-hint">悬停 ! 查看更多信息</span>
                           <div className="android-card-menu">
-                            <button
-                              className="android-card-more-btn"
-                              type="button"
-                              aria-label="更多操作"
-                              onClick={() => setCardMenuFor((current) => (current === device.id ? null : device.id))}
-                            >
-                              <span></span><span></span><span></span>
-                            </button>
+                            {clearingCacheId === device.id ? (
+                              <span className="android-card-loading" title="正在清理缓存">
+                                <span className="android-card-spinner" />
+                              </span>
+                            ) : (
+                              <button
+                                className="android-card-more-btn"
+                                type="button"
+                                aria-label="更多操作"
+                                onClick={() => setCardMenuFor((current) => (current === device.id ? null : device.id))}
+                              >
+                                <span></span><span></span><span></span>
+                              </button>
+                            )}
                             {cardMenuFor === device.id && (
                               <div className="android-card-menu-pop">
                                 <button
                                   type="button"
+                                  disabled={clearingCacheId === device.id}
                                   onClick={() => {
                                     setCardMenuFor(null);
-                                    setClearCacheTarget({ id: device.id, name: formatCell(device.name) });
+                                    void handleClearCache(device);
                                   }}
                                 >
                                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
@@ -717,6 +955,53 @@ export default function App() {
               </section>
               </div>
             </div>
+          )}
+
+          {active === "robots" && (
+            <section className="panel robots-panel">
+              <div className="panel-head">
+                <div>
+                  <h2>机器人列表（{robots.length}）</h2>
+                  <span className="muted small">初始化数据来自「机器人信息提取表」，增删保存在本地</span>
+                </div>
+                <button className="primary-btn" onClick={() => setRobotAddOpen(true)}>+ 添加机器人</button>
+              </div>
+              <div className="robots-toolbar">
+                <input
+                  className="ip-search"
+                  placeholder="搜索机器人名称或 ID"
+                  value={robotQuery}
+                  onChange={(event) => setRobotQuery(event.target.value)}
+                />
+              </div>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>机器人名称</th>
+                      <th>机器人 ID</th>
+                      <th>创建时间</th>
+                      <th>更新时间</th>
+                      <th className="right">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRobots.map((robot) => (
+                      <tr key={robot.robot_id}>
+                        <td className="robot-name">{robot.name}</td>
+                        <td className="muted robot-id" title={robot.robot_id}>{robot.robot_id}</td>
+                        <td className="muted">{robot.created_at}</td>
+                        <td className="muted">{robot.updated_at}</td>
+                        <td className="right">
+                          <button className="text-btn robot-delete-btn" onClick={() => setRobotDeleteTarget(robot)}>删除</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredRobots.length === 0 && <div className="ip-empty">暂无匹配的机器人</div>}
+              </div>
+            </section>
           )}
 
           {active === "dashboard" && (
@@ -813,19 +1098,54 @@ export default function App() {
           </div>
         )}
 
-        {clearCacheTarget && (
-          <div className="modal-mask" onClick={() => setClearCacheTarget(null)}>
+        {robotAddOpen && (
+          <div className="modal-mask" onClick={() => setRobotAddOpen(false)}>
+            <div className="modal" onClick={(event) => event.stopPropagation()}>
+              <div className="modal-head">
+                <h2>添加机器人</h2>
+                <button className="modal-close" onClick={() => setRobotAddOpen(false)}>×</button>
+              </div>
+              <label className="field"><span>机器人名称</span><input value={robotForm.name} onChange={(event) => setRobotForm((current) => ({ ...current, name: event.target.value }))} placeholder="例如：华保冀四" autoFocus /></label>
+              <label className="field"><span>机器人 ID</span><input value={robotForm.robot_id} onChange={(event) => setRobotForm((current) => ({ ...current, robot_id: event.target.value }))} placeholder="例如：wtwoia75svp7ebkvf1nbop7htoui6tpk" /></label>
+              <div className="modal-actions">
+                <button className="ghost-btn" onClick={() => setRobotAddOpen(false)}>取消</button>
+                <button className="primary-btn" onClick={confirmAddRobot}>添加</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {robotDeleteTarget && (
+          <div className="modal-mask" onClick={() => setRobotDeleteTarget(null)}>
             <div className="modal confirm-modal" onClick={(event) => event.stopPropagation()}>
               <div className="modal-head">
-                <h2>清理缓存</h2>
-                <button className="modal-close" onClick={() => setClearCacheTarget(null)}>×</button>
+                <h2>删除机器人</h2>
+                <button className="modal-close" onClick={() => setRobotDeleteTarget(null)}>×</button>
               </div>
               <p className="modal-desc">
-                确定要清理云机 <strong>{clearCacheTarget.name}</strong> 的缓存吗？
+                确定要删除机器人 <strong>{robotDeleteTarget.name}</strong> 吗？此操作不可撤销，机器人 ID：<code>{robotDeleteTarget.robot_id}</code>。
               </p>
               <div className="modal-actions">
-                <button className="ghost-btn" onClick={() => setClearCacheTarget(null)}>取消</button>
-                <button className="primary-btn" onClick={confirmClearCache}>确认清理</button>
+                <button className="ghost-btn" onClick={() => setRobotDeleteTarget(null)}>取消</button>
+                <button className="danger-btn" onClick={confirmDeleteRobot}>确认删除</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {allClearConfirmOpen && (
+          <div className="modal-mask" onClick={() => setAllClearConfirmOpen(false)}>
+            <div className="modal confirm-modal" onClick={(event) => event.stopPropagation()}>
+              <div className="modal-head">
+                <h2>全部清除缓存</h2>
+                <button className="modal-close" onClick={() => setAllClearConfirmOpen(false)}>×</button>
+              </div>
+              <p className="modal-desc">
+                将遍历 IP 列表中的 <strong>{ipList.length}</strong> 个设备，获取各自云机并逐台清理缓存。此操作不可撤销，确定继续吗？
+              </p>
+              <div className="modal-actions">
+                <button className="ghost-btn" onClick={() => setAllClearConfirmOpen(false)}>取消</button>
+                <button className="danger-btn" onClick={handleClearAllCache}>确认清除</button>
               </div>
             </div>
           </div>

@@ -37,6 +37,32 @@
         box-shadow: 0 6px 18px rgba(59, 130, 246, .25);
       }
       .boot-name { font-size: 16px; font-weight: 650; letter-spacing: .3px; }
+      .boot-slogan {
+        margin-top: 10px;
+        font-size: 56px;
+        font-weight: 900;
+        letter-spacing: 4px;
+        color: #2563eb;
+        text-shadow: 0 4px 20px rgba(37, 99, 235, .28);
+        white-space: nowrap;
+      }
+      .boot-slogan span {
+        display: inline-block;
+        opacity: 0;
+        animation: boot-pop .5s cubic-bezier(.34, 1.56, .64, 1) forwards;
+      }
+      .boot-slogan span:nth-child(1) { animation-delay: .10s; }
+      .boot-slogan span:nth-child(2) { animation-delay: .22s; }
+      .boot-slogan span:nth-child(3) { animation-delay: .34s; }
+      .boot-slogan span:nth-child(4) { animation-delay: .46s; }
+      .boot-slogan span:nth-child(5) { animation-delay: .58s; }
+      .boot-slogan span:nth-child(6) { animation-delay: .70s; }
+      .boot-slogan span:nth-child(7) { animation-delay: .82s; }
+      @keyframes boot-pop {
+        0% { opacity: 0; transform: translateY(14px) scale(.5) rotate(-12deg); }
+        70% { transform: translateY(-3px) scale(1.12) rotate(3deg); }
+        100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
+      }
       .boot-tip { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #9aa5b5; }
       .boot-spinner {
         width: 14px;
@@ -53,6 +79,9 @@
     <div id="boot-screen">
       <div class="boot-mark">R</div>
       <div class="boot-name">RPA 运营工具</div>
+      <div class="boot-slogan" aria-label="牛马，起来干活">
+        <span>牛</span><span>马</span><span>，</span><span>起</span><span>来</span><span>干</span><span>活</span>
+      </div>
       <div class="boot-tip"><span class="boot-spinner"></span>正在加载界面…</div>
     </div>
     <div id="root"></div>

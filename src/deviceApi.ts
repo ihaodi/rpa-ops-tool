@@ -1,7 +1,7 @@
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { vconsoleLog } from "./vconsole";
 
-const TIMEOUT_MS = 5000;
+const TIMEOUT_MS = 15000;
 
 export interface DeviceInfo {
   ip: string;
@@ -75,13 +75,16 @@ export interface AndroidDeviceResult {
 
 const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-const withTimeout = <T>(promise: Promise<T>): Promise<T> =>
+const withTimeout = <T>(promise: Promise<T>, timeoutMs: number = TIMEOUT_MS): Promise<T> =>
   Promise.race([
     promise,
     new Promise<T>((_, reject) => {
-      window.setTimeout(() => reject(new Error("请求超时")), TIMEOUT_MS);
+      window.setTimeout(() => reject(new Error("请求超时")), timeoutMs);
     }),
   ]);
+
+/** 清理缓存命令可能耗时较久，单独放宽到 30 秒。 */
+const EXEC_TIMEOUT_MS = 30_000;
 
 async function requestDevice<T>(ip: string, path: string): Promise<ApiResponse<T> | null> {
   const url = `http://${ip}:8000${path}`;
@@ -191,4 +194,68 @@ export async function fetchAndroidDevices(ip: string): Promise<AndroidDeviceResu
     return { list: dedupeDevicesByIndex(list), message: null };
   }
   return { list: [], message: result.message ?? "获取设备列表失败" };
+}
+
+export interface ExecResult {
+  success: boolean;
+  message: string | null;
+}
+
+/**
+ * 调用 POST /android/exec，在指定云机内执行命令。
+ * code 为 0 视为成功；失败时返回接口 message 供界面展示。
+ */
+export async function execAndroidCommand(
+  ip: string,
+  name: string,
+  command: string[],
+): Promise<ExecResult> {
+  const path = "/android/exec";
+  const url = `http://${ip}:8000${path}`;
+  const body = { name, command };
+  const params = { ip, path, method: "POST", body };
+  const startedAt = performance.now();
+  vconsoleLog("[请求] POST", url, "参数:", params);
+
+  const init: RequestInit = {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  };
+
+  try {
+    const response = isTauri()
+      ? await withTimeout(tauriFetch(url, init), EXEC_TIMEOUT_MS)
+      : await withTimeout(
+          fetch(
+            `/api/device-info?ip=${encodeURIComponent(ip)}&path=${encodeURIComponent(path)}`,
+            init,
+          ),
+          EXEC_TIMEOUT_MS,
+        );
+
+    const elapsed = Math.round(performance.now() - startedAt);
+    // 只按 HTTP 状态判断：200 即成功，不依赖返回体是否为 JSON
+    if (response.status === 200) {
+      vconsoleLog(`[响应] HTTP 200`, `耗时 ${elapsed}ms`, "清理缓存成功");
+      return { success: true, message: null };
+    }
+    let data: ApiResponse<unknown> | null = null;
+    try {
+      data = (await response.json()) as ApiResponse<unknown>;
+    } catch {
+      // 非 200 且返回体非 JSON 时忽略解析错误
+    }
+    vconsoleLog(`[响应] HTTP ${response.status}`, `耗时 ${elapsed}ms`, data);
+    return { success: false, message: data?.message ?? `请求失败（HTTP ${response.status}）` };
+  } catch (error) {
+    vconsoleLog(
+      "[请求失败]",
+      url,
+      "参数:",
+      params,
+      error instanceof Error ? error.message : "请求失败",
+    );
+    return { success: false, message: "请求超时或设备不可达" };
+  }
 }
