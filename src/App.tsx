@@ -6,7 +6,7 @@ import {
   type AndroidDevice,
   type DeviceInfo,
 } from "./deviceApi";
-import { openVConsoleWindow } from "./vconsole";
+import { getVConsole } from "./vconsole";
 import "./styles.css";
 
 type NavKey = "cloud" | "dashboard" | "tasks" | "logs" | "settings";
@@ -284,6 +284,10 @@ export default function App() {
 
   useEffect(() => {
     setIpList(loadIps());
+  }, []);
+
+  useEffect(() => {
+    getVConsole();
   }, []);
 
   useEffect(() => {
@@ -682,14 +686,6 @@ export default function App() {
             </section>
           )}
         </div>
-
-        <button
-          className="debug-window-btn"
-          onClick={() => void openVConsoleWindow()}
-          title="在独立窗口打开 vConsole 调试面板"
-        >
-          vConsole <span>↗</span>
-        </button>
 
         {importOpen && (
           <div className="modal-mask" onClick={() => setImportOpen(false)}>

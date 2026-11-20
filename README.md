@@ -62,7 +62,7 @@ VS Code 中打开项目后，推荐安装弹出的插件（Tauri、rust-analyzer
 - 默认选中排序后的第一个 IP；云机页面顶部展示**设备信息**面板（替换了原统计卡片），数据来自 `http://{主机IP}:8000/info/device`，可手动刷新。
 - 云机页面**设备列表**改为接口驱动：`http://{主机IP}:8000/android`，以卡片展示名称、状态、IP、镜像、FPS/分辨率/DPI 等主要信息；次要字段在卡片左下角 `!` 图标悬停时浮层展示，支持刷新；接口失败时显示返回的 `message`。
 - 浏览器预览通过 Vite 开发中间件转发 `/api/device-info?ip=...&path=...` 解决跨域；Tauri 桌面端使用 `@tauri-apps/plugin-http`，已在 `src-tauri/capabilities/default.json` 中放行 `http://*/*`。
-- 已引入官方 `vconsole` 库，右下角绿色 `vConsole ↗` 按钮会在独立窗口打开调试面板（浏览器预览为弹窗，安装版为 Tauri 原生窗口）。请求地址、参数、响应和耗时通过 `BroadcastChannel` 实时同步到该窗口的 vConsole Log 面板，主窗口不再显示调试浮层。
+- 已引入官方 `vconsole` 库，右下角会显示 vConsole 自带悬浮按钮；安装版无需开发者工具即可查看日志。请求地址、参数、响应和耗时通过 `vconsoleLog` 输出到 Log 面板。
 
 ## 打包说明
 
