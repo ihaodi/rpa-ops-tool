@@ -117,9 +117,7 @@ const deviceFieldGroups: { title: string; fields: { key: keyof DeviceInfo; label
       { key: "model", label: "型号版本" },
       { key: "version", label: "固件版本" },
       { key: "ip", label: "网口IP" },
-      { key: "ip_1", label: "网口1的IP" },
       { key: "hwaddr", label: "MAC地址" },
-      { key: "hwaddr_1", label: "MAC1地址" },
     ],
   },
   {
@@ -142,8 +140,6 @@ const deviceFieldGroups: { title: string; fields: { key: keyof DeviceInfo; label
       { key: "mmcwrite", label: "磁盘写入量" },
       { key: "mmctemp", label: "磁盘温度" },
       { key: "speed", label: "网口速率" },
-      { key: "netWork_eth0", label: "ETH0网卡状态" },
-      { key: "network4g", label: "4G网卡状态" },
     ],
   },
 ];
