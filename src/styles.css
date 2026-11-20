@@ -248,6 +248,9 @@ tr:hover td { background: #fcfdff; }
 }
 .android-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .android-card-heading { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.android-card-check { display: flex; align-items: center; gap: 6px; cursor: pointer; flex: 0 0 auto; }
+.android-card-check input { width: 15px; height: 15px; margin: 0; cursor: pointer; accent-color: #2563eb; }
+.android-card-index { font-size: 11px; font-weight: 600; color: #5b6675; white-space: nowrap; }
 .android-card-icon {
   width: 34px; height: 34px; flex: 0 0 34px; border-radius: 9px;
   background: #eef4ff; color: #2563eb; display: grid; place-items: center;

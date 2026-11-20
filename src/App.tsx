@@ -275,6 +275,17 @@ export default function App() {
   const [listRefresh, setListRefresh] = useState(0);
   // 每个 IP 对应的版本信息（来自 /info 的 latestVersion/currentVersion）
   const [deviceVersions, setDeviceVersions] = useState<Record<string, DeviceVersion>>({});
+  // 设备卡片复选框的选中状态（按容器 ID 记录）
+  const [checkedDevices, setCheckedDevices] = useState<Set<string>>(new Set());
+
+  const toggleDeviceCheck = (id: string) => {
+    setCheckedDevices((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // 对指定 IP 逐个调用 /info 检测在线状态（code=0 在线），记录版本，并写回本地库。
   const checkIpsOnline = (addresses: string[]) => {
@@ -595,12 +606,15 @@ export default function App() {
                       <div className="android-card" key={`${device.id}-${index}`}>
                         <div className="android-card-top">
                           <div className="android-card-heading">
-                            <div className="android-card-icon">
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                                <rect x="6" y="3" width="12" height="18" rx="2" />
-                                <path d="M11 18h2" />
-                              </svg>
-                            </div>
+                            <label className="android-card-check" onClick={(event) => event.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={checkedDevices.has(device.id)}
+                                onChange={() => toggleDeviceCheck(device.id)}
+                                aria-label={`选择 ${formatCell(device.name)}`}
+                              />
+                              <span className="android-card-index">序号 {formatCell(device.indexNum)}</span>
+                            </label>
                             <div>
                               <div className="android-card-name">{formatCell(device.name)}</div>
                               <div className="android-card-sub">ID：{formatCell(device.id)}</div>
@@ -622,7 +636,6 @@ export default function App() {
                           </span>
                         </div>
                         <div className="android-card-specs">
-                          <span>序号 {formatCell(device.indexNum)}</span>
                           <span>FPS {formatCell(device.doboxFps)}</span>
                           <span>{formatCell(device.doboxWidth)} × {formatCell(device.doboxHeight)}</span>
                           <span>DPI {formatCell(device.doboxDpi)}</span>
