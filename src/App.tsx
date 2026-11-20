@@ -121,18 +121,13 @@ const deviceFieldGroups: { title: string; fields: { key: keyof DeviceInfo; label
     ],
   },
   {
-    title: "运行状态",
+    title: "运行与存储",
     fields: [
       { key: "cputemp", label: "CPU温度" },
       { key: "cpuload", label: "CPU负载" },
       { key: "memtotal", label: "内存总大小" },
       { key: "memuse", label: "内存已使用大小" },
       { key: "sysuptime", label: "设备运行时间" },
-    ],
-  },
-  {
-    title: "磁盘与网络",
-    fields: [
       { key: "mmcmodel", label: "磁盘型号" },
       { key: "mmctotal", label: "磁盘总大小" },
       { key: "mmcuse", label: "磁盘已使用大小" },
