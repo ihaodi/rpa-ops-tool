@@ -282,8 +282,30 @@ export default function App() {
   const [listLoading, setListLoading] = useState(false);
   const [listRefresh, setListRefresh] = useState(0);
 
+  // 对指定 IP 逐个调用 /info 检测在线状态（code=0 在线），并写回本地库。
+  const checkIpsOnline = (addresses: string[]) => {
+    if (addresses.length === 0) return;
+    void Promise.all(
+      addresses.map(async (address) => {
+        const online = await checkDeviceStatus(address);
+        setIpList((current) => {
+          const updated = current.map((item) =>
+            item.address === address
+              ? { ...item, status: online ? ("在线" as const) : ("离线" as const) }
+              : item,
+          );
+          saveIps(updated);
+          return updated;
+        });
+      }),
+    );
+  };
+
   useEffect(() => {
-    setIpList(loadIps());
+    const loaded = loadIps();
+    // 加载后统一设为检测中，再逐个请求 /info 重新判定在线状态
+    setIpList(loaded.map((item) => ({ ...item, status: "检测中" as const })));
+    checkIpsOnline(loaded.map((item) => item.address));
   }, []);
 
   useEffect(() => {
@@ -383,21 +405,7 @@ export default function App() {
     setIpList(next);
     saveIps(next);
     showNotice(`已导入 ${added.length} 个 IP，正在检测在线状态`);
-
-    void Promise.all(
-      added.map(async (address) => {
-        const online = await checkDeviceStatus(address);
-        setIpList((current) => {
-          const updated = current.map((item) =>
-            item.address === address
-              ? { ...item, status: online ? ("在线" as const) : ("离线" as const) }
-              : item,
-          );
-          saveIps(updated);
-          return updated;
-        });
-      }),
-    );
+    checkIpsOnline(added);
   };
 
   const confirmDelete = () => {
