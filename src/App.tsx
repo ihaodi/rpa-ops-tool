@@ -605,30 +605,32 @@ export default function App() {
                     {androidDevices.map((device, index) => (
                       <div className="android-card" key={`${device.id}-${index}`}>
                         <div className="android-card-top">
-                          <div className="android-card-heading">
-                            <label className="android-card-check" onClick={(event) => event.stopPropagation()}>
-                              <input
-                                type="checkbox"
-                                checked={checkedDevices.has(device.id)}
-                                onChange={() => toggleDeviceCheck(device.id)}
-                                aria-label={`选择 ${formatCell(device.name)}`}
-                              />
-                              <span className="android-card-index">{formatCell(device.indexNum)}</span>
-                            </label>
-                            <div className="android-card-icon">
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                                <rect x="6" y="3" width="12" height="18" rx="2" />
-                                <path d="M11 18h2" />
-                              </svg>
+                          <label className="android-card-check" onClick={(event) => event.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={checkedDevices.has(device.id)}
+                              onChange={() => toggleDeviceCheck(device.id)}
+                              aria-label={`选择 ${formatCell(device.name)}`}
+                            />
+                            <span className="android-card-index">{formatCell(device.indexNum)}</span>
+                          </label>
+                          <div className="android-card-heading-row">
+                            <div className="android-card-heading">
+                              <div className="android-card-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+                                  <rect x="6" y="3" width="12" height="18" rx="2" />
+                                  <path d="M11 18h2" />
+                                </svg>
+                              </div>
+                              <div>
+                                <div className="android-card-name">{formatCell(device.name)}</div>
+                                <div className="android-card-sub">ID：{formatCell(device.id)}</div>
+                              </div>
                             </div>
-                            <div>
-                              <div className="android-card-name">{formatCell(device.name)}</div>
-                              <div className="android-card-sub">ID：{formatCell(device.id)}</div>
-                            </div>
+                            <span className={`badge ${device.status === "running" ? "成功" : "待执行"}`}>
+                              {formatDeviceStatus(device.status)}
+                            </span>
                           </div>
-                          <span className={`badge ${device.status === "running" ? "成功" : "待执行"}`}>
-                            {formatDeviceStatus(device.status)}
-                          </span>
                         </div>
 
                         <div className="android-card-row">
