@@ -147,13 +147,9 @@ const deviceFieldGroups: { title: string; fields: { key: keyof DeviceInfo; label
   },
 ];
 
-const androidColumns: { key: keyof AndroidDevice; label: string }[] = [
+const androidSecondaryFields: { key: keyof AndroidDevice; label: string }[] = [
   { key: "id", label: "云机容器ID" },
-  { key: "name", label: "云机名称" },
-  { key: "status", label: "状态" },
   { key: "indexNum", label: "云机实例位序号" },
-  { key: "ip", label: "云机局域网IP" },
-  { key: "image", label: "云机所用的镜像" },
   { key: "dataPath", label: "云机Data路径" },
   { key: "modelPath", label: "云机机型文件路径" },
   { key: "networkName", label: "容器网卡名称" },
@@ -576,33 +572,60 @@ export default function App() {
                   <div className="device-info-empty">暂无云机数据</div>
                 )}
                 {!listLoading && !deviceListError && androidDevices.length > 0 && (
-                  <div className="table-wrap android-table-wrap">
-                    <table className="android-table">
-                      <thead>
-                        <tr>
-                          {androidColumns.map((column) => (
-                            <th key={column.key}>{column.label}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {androidDevices.map((device, index) => (
-                          <tr key={`${device.id}-${index}`}>
-                            {androidColumns.map((column) => (
-                              <td key={column.key} title={formatCell(device[column.key])}>
-                                {column.key === "status" ? (
-                                  <span className={`badge ${device.status === "running" ? "成功" : "待执行"}`}>
-                                    {formatDeviceStatus(device.status)}
-                                  </span>
-                                ) : (
-                                  formatCell(device[column.key])
-                                )}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="android-card-grid">
+                    {androidDevices.map((device, index) => (
+                      <div className="android-card" key={`${device.id}-${index}`}>
+                        <div className="android-card-top">
+                          <div className="android-card-heading">
+                            <div className="android-card-icon">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+                                <rect x="6" y="3" width="12" height="18" rx="2" />
+                                <path d="M11 18h2" />
+                              </svg>
+                            </div>
+                            <div>
+                              <div className="android-card-name">{formatCell(device.name)}</div>
+                              <div className="android-card-sub">#{formatCell(device.indexNum)} · {formatCell(device.id)}</div>
+                            </div>
+                          </div>
+                          <span className={`badge ${device.status === "running" ? "成功" : "待执行"}`}>
+                            {formatDeviceStatus(device.status)}
+                          </span>
+                        </div>
+
+                        <div className="android-card-row">
+                          <span className="android-card-label">云机局域网IP</span>
+                          <span className="android-card-value">{formatCell(device.ip)}</span>
+                        </div>
+                        <div className="android-card-row">
+                          <span className="android-card-label">镜像</span>
+                          <span className="android-card-value" title={formatCell(device.image)}>
+                            {formatCell(device.image)}
+                          </span>
+                        </div>
+                        <div className="android-card-specs">
+                          <span>FPS {formatCell(device.doboxFps)}</span>
+                          <span>{formatCell(device.doboxWidth)} × {formatCell(device.doboxHeight)}</span>
+                          <span>DPI {formatCell(device.doboxDpi)}</span>
+                        </div>
+
+                        <div className="android-card-foot">
+                          <div className="android-card-more">
+                            <button className="android-card-info" type="button" aria-label="查看次要信息">!</button>
+                            <div className="android-card-popover">
+                              <div className="android-card-popover-title">次要信息</div>
+                              {androidSecondaryFields.map((field) => (
+                                <div className="android-card-popover-row" key={field.key}>
+                                  <span>{field.label}</span>
+                                  <span title={formatCell(device[field.key])}>{formatCell(device[field.key])}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <span className="android-card-hint">悬停 ! 查看更多信息</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </section>
