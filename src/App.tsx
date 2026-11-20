@@ -171,6 +171,12 @@ const formatCell = (value: unknown): string => {
   return String(value);
 };
 
+/** 设备名称取最后一段：1785223876623_1_yu10 -> yu10 */
+const shortDeviceName = (name: string): string => {
+  const parts = name.split("_").filter(Boolean);
+  return parts.length > 0 ? parts[parts.length - 1] : name;
+};
+
 const formatDeviceStatus = (status: string): string => {
   const map: Record<string, string> = {
     running: "运行中",
@@ -630,23 +636,21 @@ export default function App() {
                             />
                             <span className="android-card-index">{formatCell(device.indexNum)}</span>
                           </label>
-                          <div className="android-card-heading-row">
-                            <div className="android-card-heading">
-                              <div className="android-card-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                                  <rect x="6" y="3" width="12" height="18" rx="2" />
-                                  <path d="M11 18h2" />
-                                </svg>
-                              </div>
-                              <div>
-                                <div className="android-card-name">{formatCell(device.name)}</div>
-                                <div className="android-card-sub">ID：{formatCell(device.id)}</div>
-                              </div>
-                            </div>
-                            <span className={`badge android-card-badge ${device.status === "running" ? "成功" : "待执行"}`}>
-                              {formatDeviceStatus(device.status)}
-                            </span>
+                          <div className="android-card-title" title={formatCell(device.name)}>
+                            {shortDeviceName(formatCell(device.name))}
                           </div>
+                          <span className={`badge android-card-badge ${device.status === "running" ? "成功" : "待执行"}`}>
+                            {formatDeviceStatus(device.status)}
+                          </span>
+                        </div>
+                        <div className="android-card-id-row">
+                          <div className="android-card-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+                              <rect x="6" y="3" width="12" height="18" rx="2" />
+                              <path d="M11 18h2" />
+                            </svg>
+                          </div>
+                          <div className="android-card-sub">ID：{formatCell(device.id)}</div>
                         </div>
 
                         <div className="android-card-row">

@@ -246,10 +246,18 @@ tr:hover td { background: #fcfdff; }
   padding: 14px 16px 12px;
   box-shadow: 0 2px 8px rgba(15, 23, 42, .04);
 }
-.android-card-top { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+.android-card-top {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px;
+}
 .android-card-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .android-card-heading { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.android-card-check { display: flex; align-items: center; gap: 6px; cursor: pointer; flex: 0 0 auto; align-self: flex-start; }
+.android-card-check { display: flex; align-items: center; gap: 6px; cursor: pointer; justify-self: start; }
+.android-card-title {
+  font-size: 13px; font-weight: 650; color: #273244; text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px;
+}
+.android-card-top > .badge { justify-self: end; }
+.android-card-id-row { display: flex; align-items: center; gap: 10px; min-width: 0; margin-top: 8px; }
 .android-card-check input { width: 15px; height: 15px; margin: 0; cursor: pointer; accent-color: #2563eb; }
 .android-card-index { font-size: 11px; font-weight: 600; color: #5b6675; white-space: nowrap; }
 .android-card-icon {
